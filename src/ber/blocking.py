@@ -7,8 +7,10 @@ Why not plain "union of anything sharing one key": character 4-grams (ng4) gener
 so a naive union explodes to 1000+ candidates per S1 entity — infeasible once the feature step scores every pair.
 
 Approach used here: WEIGHTED KEY VOTING + TOP-K.
-  1. Build several blocking keys per record (distinctive name tokens, a name prefix, character 4-grams of the
-     compacted name, exact postal code, address prefix).
+  1. Build several blocking keys per record: distinctive NAME tokens/prefix/4-grams, distinctive ADDRESS tokens
+     (added after error analysis showed many India records are transliterated into a different script — the name
+     shares zero characters across sources, but the address stays in Latin script and matches almost verbatim),
+     exact postal code, house/plot numbers.
   2. For each S1 record, accumulate a weighted vote for every S2/S3 record sharing at least one key (weight depends
      on key type — an exact postal-code match counts far more than one shared 4-gram).
   3. Keep only the top `max_cand` records by vote score. This bounds candidates-per-entity to a FIXED number
@@ -19,17 +21,24 @@ import time
 from collections import defaultdict
 import numpy as np
 
-STOP = {"the", "and", "of", "co", "inc", "ltd", "llc", "corp", "company", "limited", "private", "pvt",
-        "group", "services", "service", "international", "national", "enterprises", "trading", "traders"}
+STOP_NAME = {"the", "and", "of", "co", "inc", "ltd", "llc", "corp", "company", "limited", "private", "pvt",
+             "group", "services", "service", "international", "national", "enterprises", "trading", "traders"}
+STOP_ADDR = {"no", "floor", "flr", "unit", "near", "opp", "opposite", "plot", "door", "house", "shop", "office",
+             "ground", "road", "rd", "street", "st", "colony", "layout", "sector", "nagar", "east", "west",
+             "north", "south", "new", "old", "main", "cross"}
 
-KEY_WEIGHT = {"tok": 3.0, "pre4": 2.0, "ng4": 0.4, "pin": 8.0, "apre6": 2.0, "city": 1.5}
+KEY_WEIGHT = {"tok": 3.0, "pre4": 2.0, "ng4": 0.4, "pin": 8.0, "apre6": 1.0, "atok": 2.5, "num": 1.5}
 
 
 def _name_tokens(name_core):
-    return [t for t in name_core.split() if t not in STOP and len(t) >= 3]
+    return [t for t in name_core.split() if t not in STOP_NAME and len(t) >= 3]
 
 
-def _keys_for_row(name_core, addr_core, postal):
+def _addr_tokens(addr_core):
+    return [t for t in addr_core.split() if t not in STOP_ADDR and len(t) >= 4 and not t.isdigit()]
+
+
+def _keys_for_row(name_core, addr_core, postal, nums):
     """Yield (key, weight) for one record. Country is applied separately (keys are grouped per-country)."""
     for t in _name_tokens(name_core):
         yield ("tok", t), KEY_WEIGHT["tok"]
@@ -43,18 +52,22 @@ def _keys_for_row(name_core, addr_core, postal):
     astr = addr_core.replace(" ", "")
     if len(astr) >= 6:
         yield ("apre6", astr[:6]), KEY_WEIGHT["apre6"]
-    words = [w for w in addr_core.split() if len(w) >= 4]
-    if words:
-        yield ("city", words[-1]), KEY_WEIGHT.get("city", 1.5)   # last address token is often the city
+    for t in _addr_tokens(addr_core):
+        yield ("atok", t), KEY_WEIGHT["atok"]
+    for n in nums:
+        yield ("num", n), KEY_WEIGHT["num"]
 
 
 def build_index(rec, mask, max_bucket):
     """Inverted index: key -> list of row indices, restricted to rows where mask is True. Oversized buckets dropped."""
     idx = defaultdict(list)
-    names, addrs, posts = rec["name_core"].to_numpy(), rec["addr_core"].to_numpy(), rec["postal"].to_numpy()
+    names = rec["name_core"].to_numpy()
+    addrs = rec["addr_core"].to_numpy()
+    posts = rec["postal"].to_numpy()
+    nums = rec["nums"].to_numpy()
     for i in np.flatnonzero(mask):
         seen = set()
-        for (k, _w) in _keys_for_row(names[i], addrs[i], posts[i]):
+        for (k, _w) in _keys_for_row(names[i], addrs[i], posts[i], nums[i]):
             if k not in seen:
                 seen.add(k)
                 idx[k].append(i)
@@ -71,7 +84,10 @@ def generate_candidates(rec, same_country=True, max_bucket=1000, max_cand=50):
     N = len(rec)
     src = rec["source"].to_numpy()
     ck = rec["country_key"].to_numpy() if same_country else np.zeros(N, dtype=object)
-    names, addrs, posts = rec["name_core"].to_numpy(), rec["addr_core"].to_numpy(), rec["postal"].to_numpy()
+    names = rec["name_core"].to_numpy()
+    addrs = rec["addr_core"].to_numpy()
+    posts = rec["postal"].to_numpy()
+    nums_col = rec["nums"].to_numpy()
     codes = []
     t0 = time.time()
     for g in np.unique(ck):
@@ -86,7 +102,7 @@ def generate_candidates(rec, same_country=True, max_bucket=1000, max_cand=50):
             index = build_index(rec, b_mask, max_bucket)
             for i in a_idx:
                 votes = defaultdict(float)
-                for (k, w) in _keys_for_row(names[i], addrs[i], posts[i]):
+                for (k, w) in _keys_for_row(names[i], addrs[i], posts[i], nums_col[i]):
                     for j in index.get(k, ()):
                         votes[j] += w
                 if not votes:
