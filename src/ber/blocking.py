@@ -22,7 +22,7 @@ import numpy as np
 STOP = {"the", "and", "of", "co", "inc", "ltd", "llc", "corp", "company", "limited", "private", "pvt",
         "group", "services", "service", "international", "national", "enterprises", "trading", "traders"}
 
-KEY_WEIGHT = {"tok": 3.0, "pre4": 2.0, "ng4": 0.4, "pin": 8.0, "apre6": 2.0}
+KEY_WEIGHT = {"tok": 3.0, "pre4": 2.0, "ng4": 0.4, "pin": 8.0, "apre6": 2.0, "city": 1.5}
 
 
 def _name_tokens(name_core):
@@ -43,6 +43,9 @@ def _keys_for_row(name_core, addr_core, postal):
     astr = addr_core.replace(" ", "")
     if len(astr) >= 6:
         yield ("apre6", astr[:6]), KEY_WEIGHT["apre6"]
+    words = [w for w in addr_core.split() if len(w) >= 4]
+    if words:
+        yield ("city", words[-1]), KEY_WEIGHT.get("city", 1.5)   # last address token is often the city
 
 
 def build_index(rec, mask, max_bucket):

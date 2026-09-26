@@ -34,6 +34,7 @@ def main():
     ap.add_argument("--holdout_country", default=None)
     ap.add_argument("--max_s1", type=int, default=None, help="dry-run: subsample this many S1 entities")
     ap.add_argument("--max_bucket", type=int, default=1000, help="drop blocking keys shared by more than this many records; raise if blocking recall is too low")
+    ap.add_argument("--max_cand", type=int, default=50, help="max candidates kept per S1 entity per target source")
     ap.add_argument("--no_same_country", action="store_true", help="block across countries (use if EDA shows cross-country matches)")
     ap.add_argument("--no_one_to_one", action="store_true", help="allow a target record to match several S1 entities")
     ap.add_argument("--tag", default="run", help="name used for the saved config file")
@@ -41,7 +42,7 @@ def main():
     os.makedirs(args.art_dir, exist_ok=True)
     t0 = time.time()
     one_to_one = not args.no_one_to_one
-    block_kw = dict(same_country=not args.no_same_country, max_bucket=args.max_bucket)
+    block_kw = dict(same_country=not args.no_same_country, max_bucket=args.max_bucket, max_cand=args.max_cand)
 
     s1, s2, s3, gt = load_split(args.data_dir, "train")
     s1, s2, s3, gt = subsample(s1, s2, s3, gt, args.max_s1)
