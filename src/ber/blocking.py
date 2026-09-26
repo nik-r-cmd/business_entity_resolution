@@ -45,7 +45,7 @@ def _keys_for_row(name_core, addr_core, postal, nums):
     compact = name_core.replace(" ", "")
     if len(compact) >= 4:
         yield ("pre4", compact[:4]), KEY_WEIGHT["pre4"]
-        for i in range(0, len(compact) - 3):
+        for i in range(0, len(compact) - 3, 2):        # stride 2: half the 4-grams, most of the recall (speed fix)
             yield ("ng4", compact[i:i + 4]), KEY_WEIGHT["ng4"]
     for p in postal:
         yield ("pin", p), KEY_WEIGHT["pin"]
