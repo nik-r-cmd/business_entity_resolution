@@ -52,6 +52,9 @@ def _keys_for_row(name_core, addr_core, postal, nums):
     astr = addr_core.replace(" ", "")
     if len(astr) >= 6:
         yield ("apre6", astr[:6]), KEY_WEIGHT["apre6"]
+    words = [w for w in addr_core.split() if len(w) >= 4]
+    if words:
+        yield ("city", words[-1]), KEY_WEIGHT.get("city", 1.5)   # last address token is often the city
     for t in _addr_tokens(addr_core):
         yield ("atok", t), KEY_WEIGHT["atok"]
     for n in nums:
