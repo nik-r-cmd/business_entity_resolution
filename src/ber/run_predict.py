@@ -21,9 +21,12 @@ def main():
     ap.add_argument("--art_dir", default="artifacts")
     ap.add_argument("--out_dir", default="output")
     ap.add_argument("--config", default=None, help="path to a config json (default: <art_dir>/config.json)")
+    ap.add_argument("--max_cand_override", type=int, default=None, help="use a different max_cand than the config (lower = less memory)")
     args = ap.parse_args()
     cfg = json.load(open(args.config or os.path.join(args.art_dir, "config.json")))
-    block_kw, one_to_one = cfg["block"], cfg["one_to_one"]
+    block_kw, one_to_one = dict(cfg["block"]), cfg["one_to_one"]
+    if args.max_cand_override is not None:
+        block_kw["max_cand"] = args.max_cand_override
 
     # ---- final model: train on every labelled training pair ----
     s1, s2, s3, gt = load_split(args.data_dir, "train")
