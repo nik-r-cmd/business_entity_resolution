@@ -48,8 +48,13 @@ def main():
     s1, s2, s3, gt = subsample(s1, s2, s3, gt, args.max_s1)
     tr, va = make_split(s1, s2, s3, gt, args.val_frac, holdout_country=args.holdout_country)
 
-    rec_tr, df_tr, _ = build_pair_table(tr["s1"], tr["s2"], tr["s3"], tr["gt"], tag="train-part", **block_kw)
-    rec_va, df_va, _ = build_pair_table(va["s1"], va["s2"], va["s3"], va["gt"], tag="val-part", **block_kw)
+    import torch
+    from sentence_transformers import SentenceTransformer
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    embed_model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", device=device)
+    rescue_kw = dict(weak_threshold=5, top_k=10, sim_min=0.5)
+    rec_tr, df_tr, _ = build_pair_table(tr["s1"], tr["s2"], tr["s3"], tr["gt"], tag="train-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
+    rec_va, df_va, _ = build_pair_table(va["s1"], va["s2"], va["s3"], va["gt"], tag="val-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
     from .embed_feature import add_embedding_feature
     print("[embed] adding multilingual name embedding feature (train-part)...")
     add_embedding_feature(rec_tr, df_tr)
