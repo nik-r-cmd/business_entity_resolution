@@ -57,8 +57,8 @@ def main():
     print("[full-train] released training data from memory before processing test set")
 
     t1, t2, t3, _ = load_split(args.data_dir, "test")
-    rec, df_te, codes = build_pair_table(t1, t2, t3, None, tag="test", embed_model=embed_model,
-                                          rescue_kw=rescue_kw, use_quality_filter=False, **block_kw)
+    rec, df_te, codes = build_pair_table(t1, t2, t3, None, tag="test", embed_model=None,
+                                          rescue_kw=None, **block_kw)
     df_te["p"] = clf.predict_proba(df_te[feats])[:, 1] if len(df_te) else []
     match = predict_map(df_te, rec, cfg["thr2"], cfg["thr3"], one_to_one)
 
