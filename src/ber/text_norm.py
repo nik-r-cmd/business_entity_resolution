@@ -60,6 +60,7 @@ def acronym(s):
 
 # ---------- addresses ----------
 ADDR_ABBR = {
+    "r": "rue",  # French: "R" is a very common abbreviation for "Rue" (street), e.g. "46 R HENRI CARRITTE"
     "rd": "road", "st": "street", "str": "street", "ave": "avenue", "av": "avenue", "blvd": "boulevard",
     "bd": "boulevard", "bvd": "boulevard", "ln": "lane", "dr": "drive", "ct": "court", "pl": "place",
     "sq": "square", "hwy": "highway", "pkwy": "parkway", "ste": "suite", "fl": "floor", "flr": "floor",

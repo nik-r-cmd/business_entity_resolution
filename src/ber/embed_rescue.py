@@ -4,10 +4,10 @@ match, so no token/n-gram/edit-distance key can ever find them. A multilingual s
 scripts close together (many are trained on parallel/translation corpora), which token overlap cannot do.
 
 Cost control: we do NOT re-embed the whole corpus. We only embed:
-  - S1 records whose existing candidate count is below `weak_threshold` (the ones blocking is struggling on)
+  - S1 records flagged as weak (via blocking.get_weak_entities — a QUALITY signal, not raw count; typically
+    only 5-15% of entities, not everyone)
   - the S2/S3 pool of their own country
-Both the target pool and the anchor side are processed in chunks so the similarity matrix never spikes memory,
-regardless of how large the country's pool is.
+Both the anchor and target sides are processed in chunks so the similarity matrix never spikes memory.
 """
 import time
 import numpy as np
@@ -19,18 +19,23 @@ def _embed(texts, model, batch_size=256):
 
 
 def rescue_candidates(rec, existing_codes, model, weak_threshold=5, top_k=10, same_country=True,
-                       model_batch=256, sim_min=0.5):
+                       model_batch=256, sim_min=0.5, weak_override=None):
     """Find extra candidates via embedding nearest-neighbour for S1 entities with few/no existing candidates.
-    Returns int64 array of NEW pair codes (a*N+b) to union in with the existing candidates."""
+    weak_override: if given (e.g. from blocking.get_weak_entities), use this set of S1 row indices directly
+    instead of the count-based `weak_threshold` filter. Prefer this — raw candidate count is nearly useless
+    here since blocking fills every entity up to max_cand regardless of match quality."""
     N = len(rec)
     src = rec["source"].to_numpy()
-    s1_mask = src == "S1"
-    a_idx_all = np.flatnonzero(s1_mask)
 
-    cand_a = existing_codes // N
-    counts = np.bincount(cand_a, minlength=N)
-    weak = a_idx_all[counts[a_idx_all] < weak_threshold]
-    print(f"  [rescue] {len(weak):,} / {len(a_idx_all):,} S1 entities have < {weak_threshold} candidates — running embedding rescue on these")
+    if weak_override is not None:
+        weak = np.asarray(weak_override)
+        print(f"  [rescue] {len(weak):,} S1 entities flagged by QUALITY filter — running embedding rescue on these")
+    else:
+        a_idx_all = np.flatnonzero(src == "S1")
+        cand_a = existing_codes // N
+        counts = np.bincount(cand_a, minlength=N)
+        weak = a_idx_all[counts[a_idx_all] < weak_threshold]
+        print(f"  [rescue] {len(weak):,} / {len(a_idx_all):,} S1 entities have < {weak_threshold} candidates — running embedding rescue on these")
     if len(weak) == 0:
         return np.array([], dtype=np.int64)
 
