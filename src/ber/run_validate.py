@@ -55,11 +55,6 @@ def main():
     rescue_kw = dict(weak_threshold=5, top_k=10, sim_min=0.5)
     rec_tr, df_tr, _ = build_pair_table(tr["s1"], tr["s2"], tr["s3"], tr["gt"], tag="train-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
     rec_va, df_va, _ = build_pair_table(va["s1"], va["s2"], va["s3"], va["gt"], tag="val-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
-    from .embed_feature import add_embedding_feature
-    print("[embed] adding multilingual name embedding feature (train-part)...")
-    add_embedding_feature(rec_tr, df_tr)
-    print("[embed] adding multilingual name embedding feature (val-part)...")
-    add_embedding_feature(rec_va, df_va)
 
     feats = feature_cols(df_tr)
     print(f"\n[model] training LightGBM on {len(df_tr):,} pairs ({df_tr['label'].mean():.3%} positive), {len(feats)} features")
