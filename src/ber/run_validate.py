@@ -52,7 +52,7 @@ def main():
     from sentence_transformers import SentenceTransformer
     device = "cuda" if torch.cuda.is_available() else "cpu"
     embed_model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2", device=device)
-    rescue_kw = dict(weak_threshold=999, top_k=10, sim_min=0.5)   # force rescue on ALL entities for this test
+    rescue_kw = dict(quality_threshold=8.0, top_k=10, sim_min=0.5)   # entities whose best match relied on weak signals only
     rec_tr, df_tr, _ = build_pair_table(tr["s1"], tr["s2"], tr["s3"], tr["gt"], tag="train-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
     rec_va, df_va, _ = build_pair_table(va["s1"], va["s2"], va["s3"], va["gt"], tag="val-part", embed_model=embed_model, rescue_kw=rescue_kw, **block_kw)
 
